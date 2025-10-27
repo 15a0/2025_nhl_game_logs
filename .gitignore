@@ -1,2 +1,32 @@
-﻿.history/
+.history/
 
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+Data/nhl_stats.db
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Output files (optional - uncomment if you want to ignore generated stats)
+# game_stats_*.csv
+# debug_pbp.json

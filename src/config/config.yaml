@@ -1,0 +1,97 @@
+# NHL DFS Analytics Configuration
+# ================================
+
+# API Configuration
+api:
+  base_url: "https://api-web.nhle.com"
+  timeout_seconds: 15
+  max_retries: 3
+  backoff_factor: 0.5
+  retry_status_codes: [429, 500, 502, 503, 504]
+
+# High-Danger Zone Definition (NHL rink coordinates)
+high_danger_zone:
+  x_threshold: 15        # feet from net
+  y_threshold: 8.5       # feet from center (goal posts)
+  net_x: 89              # net position in NHL coordinates
+
+# xG Model (v1.0: Simple distance-based)
+xg_model:
+  version: "1.0"
+  high_danger_distance: 15
+  mid_range_distance: 30
+  high_danger_xg:
+    wrist: 0.22
+    slap: 0.17
+  mid_range_xg:
+    wrist: 0.10
+    slap: 0.08
+  long_range_xg:
+    wrist: 0.04
+    slap: 0.03
+  # v2.1 upgrade path (documented, not implemented)
+  v2_1_features:
+    - shot_type_weights
+    - rebound_detection
+    - strength_adjustment
+    - angle_factor
+
+# Slate GOI Parameters
+slate_goi:
+  form_window: 5              # games (Last X)
+  venue_boost: 0.08           # +8% xGF for home teams
+  rest_penalty: -0.05         # -5% for back-to-back
+  early_season_weight: 10     # games (first N games use confidence weights)
+
+# Operational Decisions
+operational_decisions:
+  z_score_timing: "nightly"                    # Recompute all 32 teams nightly
+  last_x_games: 5                              # 5-game window for form
+  early_season_confidence_weight: "games_played / 10"  # Gradual transition
+  opponent_quality_threshold: -0.5             # z-score threshold for "weak" defense
+
+# Cache Configuration
+cache:
+  ttl_seconds: 86400          # 24 hours
+  max_size_mb: 500
+  cleanup_interval_hours: 6
+
+# Logging Configuration
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "logs/app.log"
+  console_enabled: true
+  file_enabled: true
+
+# Database Configuration
+database:
+  type: "sqlite"
+  path: "Data/nhl_stats.db"
+  echo: false  # Set to true for SQL debugging
+
+# Stats Bucketing (from v1.0, preserved for v2.0)
+stat_buckets:
+  offensive_creation:
+    weight: 0.4
+    stats:
+      - CF%
+      - SCF%
+      - HDF%
+      - HDC%
+      - HDCO%
+      - xGF
+      - PP%
+  defensive_resistance:
+    weight: 0.3
+    stats:
+      - xGA
+      - PK%
+      - Pen Taken/60
+    reverse_sign: true  # Lower is better
+  pace_drivers:
+    weight: 0.3
+    stats:
+      - FOW%
+      - Pen Drawn/60
+      - Net Pen/60

@@ -1,0 +1,62 @@
+YES — 100% YES.
+The NHL boxscore (/v1/gamecenter/{game_id}/boxscore) and play-by-play (/v1/gamecenter/{game_id}/play-by-play) endpoints provide ALL the raw ingredients to calculate every single one of your 13 high-signal stats.
+Some are direct (e.g., FOW%, PP%, PK%), others are derived from event-level data (e.g., CF%, SCF%, xGF, xGA), and a few require time-on-ice (TOI) normalization (e.g., Pen/60, Pen Drawn/60).
+
+Full Breakdown: 13 Stats → Source → How to Compute
+
+
+
+StatDirect or Derived?SourceHow to Compute1. Net Pen/60DerivedPlay-by-Play(Penalties Taken - Penalties Drawn) / (TOI in minutes) × 602. Pen Drawn/60DerivedPlay-by-PlayPenalties Drawn / (TOI in minutes) × 603. HDCO%DerivedPlay-by-PlayHigh-Danger Chances On / (HDCO + High-Danger Chances Against) × 1004. Pen Taken/60DerivedPlay-by-PlayPenalties Taken / (TOI in minutes) × 605. HDC%DerivedPlay-by-PlayHigh-Danger Chances For / (HDCF + HDCA) × 1006. CF%DerivedPlay-by-PlayCorsi For / (Corsi For + Corsi Against) × 1007. PP%DirectBoxscorePower Play Goals / Power Play Opportunities × 1008. HDF%DerivedPlay-by-PlayHigh-Danger Shots For / (HDSF + HDSA) × 1009. FOW%DirectBoxscoreFaceoffs Won / (Faceoffs Won + Faceoffs Lost) × 10010. xGFDerivedPlay-by-Play + xG ModelSum of expected goals for all shots (using shot type, location, strength, etc.)11. SCF%DerivedPlay-by-PlayScoring Chances For / (SCF + SCA) × 10012. PK%DirectBoxscore(PP Opportunities Against - PP Goals Against) / PP Opportunities Against × 10013. xGADerivedPlay-by-Play + xG ModelSum of expected goals against
+
+Data Sources in NHL API
+
+
+Data NeededAvailable in API?EndpointJSON PathPenalties (Taken/Drawn)YesPlay-by-Playplays → eventTypeId: "PENALTY" → playerId (offender) and drewPenaltyTOI (Time on Ice)YesBoxscoreplayerByGameStats.homeTeam.skaters[i].toiShots (Corsi)YesPlay-by-PlayeventTypeId: "SHOT", "BLOCKED_SHOT", "MISSED_SHOT"High-Danger Shots/ChancesYesPlay-by-PlayshotType, xCoord, yCoord → classify as high-danger (inner slot, <15 ft)Scoring ChancesYesPlay-by-PlayNHL defines SCF via shot type + location (rebounds, rush, etc.)FaceoffsYesBoxscoreteamStats.faceoffWinningPct or per-player faceoffsWonPower PlaysYesBoxscorepowerPlayGoals, powerPlayOpportunitiesShot Location (x,y)YesPlay-by-PlayxCoord, yCoord (rink coordinates)Shot TypeYesPlay-by-PlayshotType (wrist, slap, tip-in, etc.)Game StateYesPlay-by-Playstrength (5v5, 5v4, 4v5, etc.)
+
+How to Classify High-Danger Shots (HDSF, HDCO, etc.)
+Using rink coordinates from play-by-play:
+pythondef is_high_danger(x, y, team_side):
+    # Inner slot: within 15 ft of net, between goal posts
+    net_x = 89 if team_side == "right" else -89
+    return abs(x - net_x) < 15 and abs(y) < 8.5
+
+HDC% = High-Danger Chances (not just shots)
+HDCO% = High-Danger Chances On (on net)
+Use eventTypeId: "SHOT" + result: "GOAL" or SHOT to count.
+
+
+xGF / xGA: You Need a Model (But Data Is There)
+The NHL does NOT provide xG directly, but you have all inputs:
+
+
+InputFrom APIShot distancexCoord, yCoordShot angleatan2(y, x - net_x)Shot typeshotTypeStrengthstrengthRebound?Previous event was a shotRush?Zone entry event
+You can:
+
+Use public xG models (e.g., Evolving-Hockey, MoneyPuck).
+Build a simple logistic model on historical data.
+Or use NHL Edge data (if available via API later).
+
+
+Team-Level vs Player-Level
+
+
+StatTeamPlayerPP%, PK%, FOW%YesNo (team only)CF%, SCF%, xGF%YesYes (filter by playerId)Pen/60, Pen Drawn/60NoYesHDC%, HDCO%YesYes
+
+Example: Player-Level Net Pen/60
+python# From play-by-play
+penalties_taken = count(events where playerId == X and event == "PENALTY")
+penalties_drawn = count(events where drewPenalty == X)
+
+# From boxscore
+toi_seconds = player["toi"]  # "18:45" → 1125 seconds
+toi_minutes = toi_seconds / 60
+
+net_pen_60 = (penalties_taken - penalties_drawn) / toi_minutes * 60
+
+Final Answer: YES — YOU HAVE EVERYTHING
+
+
+
+
+
+StatAvailable?NotesNet Pen/60YesPlay-by-play + TOIPen Drawn/60YesPlay-by-play + TOIHDCO%YesShot location filteringPen Taken/60YesPlay-by-play + TOIHDC%YesShot locationCF%YesCorsi eventsPP%YesDirect from boxscoreHDF%YesHigh-danger shotsFOW%YesDirectxGFYesWith modelSCF%YesScoring chance eventsPK%YesDirectxGAYesWith model

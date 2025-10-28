@@ -30,3 +30,6 @@ Thumbs.db
 # Output files (optional - uncomment if you want to ignore generated stats)
 # game_stats_*.csv
 # debug_pbp.json
+
+# Reference/Archive folders (keep locally, don't sync)
+_GOI_v1.0/
